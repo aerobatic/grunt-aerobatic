@@ -37,5 +37,11 @@
   },
   "keywords": [
     "gruntplugin"
-  ]
+  ],
+  "dependencies": {
+    "lodash": "^2.4.1",
+    "request": "^2.36.0",
+    "open": "0.0.5",
+    "colors": "^0.6.2"
+  }
 }
