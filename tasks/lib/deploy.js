@@ -6,69 +6,86 @@ var os = require('os'),
   _ = require('lodash'),
   zlib = require('zlib'),
   open = require('open'),
+  uuid = require('node-uuid'),
+  async = require('async'),
+  crypto = require('crypto'),
   colors = require('colors');
 
 module.exports = function(grunt) {
 
-  function deploySrcArchive(config, options, archivePath, callback) {
+  function createDevApiRequest(config, url, method, form, callback) {
     var headers = {
       'User-Agent': 'aerobatic-yoke',
       'Secret-Key': config.secretKey,
       'UserId': config.userId
     };
 
-    var uploadUrl = options.airport + '/dev/' + config.appId + '/deploy';
-    grunt.log.writeln('Deploying src archive to  ' + uploadUrl);
-
     var requestOptions = {
-      method: 'post',
+      method: method,
       headers: headers,
-      url: uploadUrl
-    }
+      url: url
+    };
+    if (form)
+      requestOptions.form = form;
 
-    var postRequest = request(requestOptions, function(err, resp, body) {
+    return request(requestOptions, function(err, resp, body) {
       if (err)
         return callback(new Error("Error uploading index document: " + err.message));
 
       if (resp.statusCode == 401)
-        return callback(new Error("Unauthorized upload. Check your deploy key."));
+        return callback(new Error("Unauthorized upload. Check your secret key in the .aerobatic file."));
       else if (resp.statusCode !== 200)
         return callback(new Error(resp.statusCode + ": " + body));
 
-      var version = JSON.parse(body);
-      grunt.log.debug(JSON.stringify(version));
+      callback(null, JSON.parse(body));
+    });
+  }
 
-      grunt.log.debug("callback is function: " + _.isFunction(callback));
-      callback(null, version);
+  function uploadFile(config, filePath, url, callback) {
+    var request = createDevApiRequest(config, url, 'PUT', null, function(err, json) {
+      callback(err);
     });
 
-    var form = postRequest.form();
-    form.append('srcArchive', fs.createReadStream(archivePath));
+    var form = request.form();
+    form.append('file', fs.createReadStream(filePath));
   }
 
   return function(config, options) {
     // if (options.files.length == 0)
     //   return grunt.fail.fatal("No files to push were specified");
-    grunt.log.writeln('Executing the push task');
+    grunt.log.writeln('Executing the deploy task');
     var done = grunt.task.current.async();
 
-    // var tempArchivePath = path.join(os.tmpdir(), "aerobatic-push-" + new Date().getTime() + ".zip");
-    var tempArchivePath = path.join(process.cwd(), "aerobatic-push-" + new Date().getTime() + ".zip");
+    // Create a new version object
+    var versionId = uuid.v1().toString();
+    var versionData= {
+      versionId: versionId,
+      appId: config.appId,
+      userId: config.userId,
+      storageKey: crypto.createHash('md5').update(versionId).digest('hex').substring(0, 9),
+      name: options.name,
+      message: options.message
+    };
 
-    grunt.log.debug("Creating zip archive of files to push at " + tempArchivePath);
-    archive = archiver('zip');
+    // PUT each file individually
+    var uploadCount = 0;
+    async.each(options.files[0].src, function(filePath, cb) {
+      var relativePath = path.relative(process.cwd(), filePath);
 
-    archive.on('error', function(err) {
-      grunt.fail.fatal('Error generating the version zip: ' + err.message);
-    });
+      var uploadUrl = options.airport + '/dev/' + config.appId + '/deploy/' + versionData.storageKey + '/' + relativePath;
+      grunt.log.debug('Deploying file ' + filePath);
+      uploadCount++;
+      uploadFile(config, filePath, uploadUrl, cb);
+    }, function(err) {
+      if (err)
+        return grunt.fail.fatal("Error deploying source files: " + err);
 
-    var zipStream = fs.createWriteStream(tempArchivePath);
-    zipStream.on('close', function() {
-      grunt.log.writeln("Deployment archive created");
-      deploySrcArchive(config, options, tempArchivePath, function(err, version) {
-        grunt.log.debug('Deleting archive ' + tempArchivePath);
-        fs.unlink(tempArchivePath);
+      grunt.log.debug('Done uploading ' + uploadCount + ' files');
 
+      // Create the new version
+      var url = options.airport + '/dev/' + config.appId + '/version';
+      grunt.log.debug('Creating new version');
+      createDevApiRequest(config, url, 'POST', versionData, function(err, version) {
         if (err) return done(err);
 
         grunt.log.writeln("New version successfully deployed".green);
@@ -83,15 +100,5 @@ module.exports = function(grunt) {
         done();
       });
     });
-
-    archive.pipe(zipStream);
-
-    options.files[0].src.forEach(function(file) {
-      grunt.log.debug("appending " + file + " to archive");
-      var fullPath = path.join(process.cwd(), file);
-
-      archive.file(fullPath, {name: file});
-    });
-    archive.finalize();
   }
-}
+};
