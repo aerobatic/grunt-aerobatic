@@ -5,7 +5,10 @@ var _ = require('lodash'),
   express = require('express'),
   fs = require('fs'),
   path = require('path'),
-  http = require('http');
+  cors = require('cors'),
+  http = require('http'),
+  minimatch = require('minimatch'),
+  watch = require('watch');
 
 module.exports = function(grunt) {
 
@@ -39,7 +42,86 @@ module.exports = function(grunt) {
       else if (resp.statusCode !== 200)
         return callback(new Error(resp.statusCode + ": " + body));
 
-      callback(null, JSON.parse(body));
+      var app = JSON.parse(body);
+      callback(null, app);
+    });
+  }
+
+  function makeFilter(patterns) {
+    return function(filePath, fstat) {
+      var relativePath = path.relative(process.cwd(), filePath);
+
+      if (relativePath == 'node_modules')
+        return false;
+
+      if (fstat.isDirectory())
+        return true;
+
+      return _.any(patterns, function(p) {
+        return minimatch(relativePath, p);
+      });
+    }
+  }
+
+  function watchForChanges(config, options) {
+    if (!options.watch)
+      return;
+
+    var watchTargets = _.keys(options.watch);
+    findTargetMatch = function(filePath, fstat) {
+      if (fstat.isFile() !== true)
+        return null;
+
+      var relativePath = path.relative(process.cwd(), filePath);
+      for (var i=0; i<watchTargets.length; i++) {
+        if (_.any(options.watch[watchTargets[i]].files, function(pattern) {
+          return minimatch(relativePath, pattern);
+        })) return watchTargets[i];
+      }
+
+      return null;
+    }
+
+    respondToChange = function(f, stat) {
+      var target = findTargetMatch(f, stat);
+      if (!target)
+        return;
+
+      var tasks = options.watch[target].tasks;
+      grunt.log.debug("Files matching target " + target + " detected");
+      grunt.log.debug("Executing tasks " + JSON.stringify(tasks));
+
+      // We need to spawn grunt in another process since the current
+      // process is busy running our express server
+      grunt.util.spawn({
+        grunt: true,
+        opts: {
+          cwd: process.cwd(),
+          stdio: 'inherit',
+        },
+        // Run grunt this process uses, append the task to be run and any cli options
+        args: tasks //.concat(self.options.cliArgs || []),
+      }, function(err, res, code) {
+        if (err)
+          return grunt.fail.fatal(err);
+
+        grunt.log.debug("Done executing spawned tasks");
+      });
+    }
+
+    var monitorOptions = {
+      ignoreDotFiles: true,
+      filter: function(f, fstat) {
+        return !(fstat.isDirectory() && path.basename(f) == 'node_modules');
+      }
+    };
+
+    watch.createMonitor(process.cwd(), monitorOptions, function(monitor) {
+      monitor.on("created", respondToChange);
+      monitor.on("changed", function (f, curr, prev) {
+        respondToChange(f, monitor.files[f]);
+      });
+      monitor.on("removed", respondToChange);
     });
   }
 
@@ -47,8 +129,11 @@ module.exports = function(grunt) {
     fs.watchFile(path.join(process.cwd(), options.index), function (curr, prev) {
       grunt.log.writeln("Uploading changes to " + options.index + " document to the simulator");
 
-      uploadIndexDocument(config, options, function(err) {
-        grunt.log.debug('Done uploading ' + options.index);
+      uploadIndexDocument(config, options, function(err, app) {
+        if (err)
+          grunt.fail.fatal('Error uploading modified version of ' + options.index + ' to simulator: ' + err.message);
+
+        grunt.log.debug('Done uploading ' + options.index + ' to simulator');
 
         // TODO: Send a socket.io message to the browser to refresh the page
       });
@@ -67,6 +152,7 @@ module.exports = function(grunt) {
       res.redirect(simulatorUrl);
     });
 
+    simulator.use(cors());
     simulator.use(express.static(process.cwd()));
 
     // Anything not served by the static middleware is a 404
@@ -95,12 +181,13 @@ module.exports = function(grunt) {
     uploadIndexDocument(config, options, function(err, app) {
       if (err) return done(err);
 
-      var simulatorUrl = app.url + '?sim=1&user=' + config.userId;
+      var simulatorUrl = app.url + '?sim=1&user=' + config.userId + '&port=' + options.port;
 
       startLocalServer(options, simulatorUrl);
 
       // Watch for changes to the index file
       watchIndexDocument(config, options);
+      watchForChanges(config, options);
 
       if (grunt.option('open')) {
         grunt.log.writeln("Launching browser to " + simulatorUrl);
