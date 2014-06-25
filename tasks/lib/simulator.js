@@ -47,84 +47,6 @@ module.exports = function(grunt) {
     });
   }
 
-  function makeFilter(patterns) {
-    return function(filePath, fstat) {
-      var relativePath = path.relative(process.cwd(), filePath);
-
-      if (relativePath == 'node_modules')
-        return false;
-
-      if (fstat.isDirectory())
-        return true;
-
-      return _.any(patterns, function(p) {
-        return minimatch(relativePath, p);
-      });
-    }
-  }
-
-  function watchForChanges(config, options) {
-    if (!options.watch)
-      return;
-
-    var watchTargets = _.keys(options.watch);
-    findTargetMatch = function(filePath, fstat) {
-      if (fstat.isFile() !== true)
-        return null;
-
-      var relativePath = path.relative(process.cwd(), filePath);
-      for (var i=0; i<watchTargets.length; i++) {
-        if (_.any(options.watch[watchTargets[i]].files, function(pattern) {
-          return minimatch(relativePath, pattern);
-        })) return watchTargets[i];
-      }
-
-      return null;
-    }
-
-    respondToChange = function(f, stat) {
-      var target = findTargetMatch(f, stat);
-      if (!target)
-        return;
-
-      var tasks = options.watch[target].tasks;
-      grunt.log.debug("Files matching target " + target + " detected");
-      grunt.log.debug("Executing tasks " + JSON.stringify(tasks));
-
-      // We need to spawn grunt in another process since the current
-      // process is busy running our express server
-      grunt.util.spawn({
-        grunt: true,
-        opts: {
-          cwd: process.cwd(),
-          stdio: 'inherit',
-        },
-        // Run grunt this process uses, append the task to be run and any cli options
-        args: tasks //.concat(self.options.cliArgs || []),
-      }, function(err, res, code) {
-        if (err)
-          return grunt.fail.fatal(err);
-
-        grunt.log.debug("Done executing spawned tasks");
-      });
-    }
-
-    var monitorOptions = {
-      ignoreDotFiles: true,
-      filter: function(f, fstat) {
-        return !(fstat.isDirectory() && path.basename(f) == 'node_modules');
-      }
-    };
-
-    watch.createMonitor(process.cwd(), monitorOptions, function(monitor) {
-      monitor.on("created", respondToChange);
-      monitor.on("changed", function (f, curr, prev) {
-        respondToChange(f, monitor.files[f]);
-      });
-      monitor.on("removed", respondToChange);
-    });
-  }
-
   function watchIndexDocument(config, options) {
     fs.watchFile(path.join(process.cwd(), options.index), function (curr, prev) {
       grunt.log.writeln("Uploading changes to " + options.index + " document to the simulator");
@@ -134,22 +56,20 @@ module.exports = function(grunt) {
           grunt.fail.fatal('Error uploading modified version of ' + options.index + ' to simulator: ' + err.message);
 
         grunt.log.debug('Done uploading ' + options.index + ' to simulator');
-
-        // TODO: Send a socket.io message to the browser to refresh the page
       });
     });
   }
 
-  function startLocalServer(options, simulatorUrl) {
+  function startLocalServer(options, developmentUrl) {
     grunt.log.writeln("Starting simulator server on port " + options.port);
     var simulator = express();
 
     simulator.get('/', function(req, res) {
-      res.redirect(simulatorUrl);
+      res.redirect(developmentUrl);
     });
 
     simulator.get('/' + options.index, function(req, res) {
-      res.redirect(simulatorUrl);
+      res.redirect(developmentUrl);
     });
 
     simulator.use(cors());
@@ -177,30 +97,36 @@ module.exports = function(grunt) {
       return false;
     }
 
-    var done = grunt.task.current.async();
+    var done = null;
+    var args = grunt.task.current.args;
+    async = !_.contains(grunt.task.current.args, 'sync');
+
+    if (async === true)
+      done = grunt.task.current.async();
+
     uploadIndexDocument(config, options, function(err, app) {
-      if (err) return done(err);
+      if (err)
+        return grunt.fail.fatal(err);
 
-      var simulatorUrl = app.url + '?sim=1&user=' + config.userId + '&port=' + options.port;
+      var developmentUrl = app.url + '?sim=1&user=' + config.userId + '&port=' + options.port;
+      if (grunt.option('livereload'))
+        developmentUrl += '&reload=1';
 
-      startLocalServer(options, simulatorUrl);
+      startLocalServer(options, developmentUrl);
 
       // Watch for changes to the index file
       watchIndexDocument(config, options);
-      watchForChanges(config, options);
 
       if (grunt.option('open')) {
-        grunt.log.writeln("Launching browser to " + simulatorUrl);
-        open(simulatorUrl);
+        grunt.log.writeln("Launching browser to " + developmentUrl);
+        open(developmentUrl);
       }
       else {
-        grunt.log.writeln("Simulator is running at " + simulatorUrl.underline.cyan);
+        grunt.log.writeln("Simulator is running at " + developmentUrl.underline.cyan);
       }
 
       // We don't want to call done since that will kill our express server
       // done(null);
     });
-
-    return done;
   }
 }
