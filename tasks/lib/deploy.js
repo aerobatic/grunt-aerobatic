@@ -1,5 +1,4 @@
 var os = require('os'),
-  archiver = require('archiver'),
   path = require('path'),
   request = require('request'),
   fs = require('fs'),
