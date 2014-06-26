@@ -36,6 +36,7 @@ module.exports = function(grunt) {
       else if (resp.statusCode !== 200)
         return callback(new Error(resp.statusCode + ": " + body));
 
+      grunt.log.debug("Parsing json response: " + body);
       callback(null, JSON.parse(body));
     });
   }
@@ -62,8 +63,8 @@ module.exports = function(grunt) {
       appId: config.appId,
       userId: config.userId,
       storageKey: crypto.createHash('md5').update(versionId).digest('hex').substring(0, 9),
-      name: options.name,
-      message: options.message
+      name: grunt.option('name'),
+      message: grunt.option('message')
     };
 
     // PUT each file individually
@@ -84,17 +85,28 @@ module.exports = function(grunt) {
       // Create the new version
       var url = options.airport + '/dev/' + config.appId + '/version';
       grunt.log.debug('Creating new version');
+
+      if (grunt.option('cowboy') === true) {
+        versionData.forceAllTrafficToNewVersion = '1';
+        grunt.log.writeln('Cowboy mode - forcing all traffic to the new version. Yippee-ki-yay!'.yellow);
+      }
+
       createDevApiRequest(config, url, 'POST', versionData, function(err, version) {
-        if (err) return done(err);
+        if (err)
+          return grunt.fail.fatal(err);
 
         grunt.log.writeln("New version successfully deployed".green);
 
-        if (grunt.option('open')) {
+        if (grunt.option('open') === true) {
           grunt.log.writeln("Launching browser to " + version.previewUrl);
           open(version.previewUrl);
         }
-        else
-          grunt.log.ok("Preview at: " + version.previewUrl.cyan.underline);
+        else {
+          if (grunt.option('cowboy') === true)
+            grunt.log.ok("New version is live at " + version.previewUrl.cyan.underline);
+          else
+            grunt.log.ok("Preview at: " + version.previewUrl.cyan.underline);
+        }
 
         done();
       });

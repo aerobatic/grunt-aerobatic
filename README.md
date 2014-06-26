@@ -42,15 +42,17 @@ The `deploy` target deploys the current local sources as a new version. By defau
 staged in production, but not yet receiving live traffic. To direct live traffic to the new version you log into
 your Aerobatic app dashboard and configure the traffic control rules to specify this version should receive
 some or all of the traffic. The grunt log output will include a preview URL that will force the new version to be used
-so you can immediately see your changes live in production without impacting real users. You can override this behavior and force all traffic
-to the new version by passing the `--live` option.
+so you can immediately see your changes live in production without impacting real users.
+
+If you just want to push your changes to the live site and bypass traffic control
+configuration, you can specify the `--cowboy` flag.
 
 #### src
 Type: `Array`
 Specifies the files that should be deployed. Typically you will use the output of other grunt tasks that have built the assets for the production environment, i.e. [grunt-contrib-uglify](https://github.com/gruntjs/grunt-contrib-uglify), [grunt-contrib-sass](https://github.com/gruntjs/grunt-contrib-sass), etc.
 
 ####Command Options
-**--live** - Force the new version to take 100% of live traffic. Useful when you are just getting started and the risks of bypassing the staging process is low.
+**--cowboy** - Force the new version to take 100% of live traffic immedietely. Useful when you are just getting started and the risks of bypassing the staging process is low or you if that's just the way you roll.
 
 **--name** - The name of the new version. Defaults to an auto-generated timestamp.
 

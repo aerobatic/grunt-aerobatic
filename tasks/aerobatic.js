@@ -27,7 +27,7 @@ module.exports = function(grunt) {
     var config = grunt.file.readJSON('.aerobatic');
 
     if (!config.appId || !config.secretKey) {
-      grunt.fail.fatal(".aerobatic file is corrupt. Login to your app dashboard to rec-create it.");
+      grunt.fail.fatal(".aerobatic file is corrupt. Login to your app dashboard to recreate it.");
       return null;
     }
 
@@ -37,27 +37,6 @@ module.exports = function(grunt) {
   function validateUuid(uuid) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uuid);
   }
-
-  // function writeInitDotFile( ) {
-  //   var config = {
-  //     appId: grunt.option('id'),
-  //     userId: grunt.option('user'),
-  //     deployKey: grunt.option('key')
-  //   };
-  //
-  //   if (!validateUuid(config.appId))
-  //     return grunt.log.error("The --id arg is not valid");
-  //
-  //   if (!validateUuid(config.userId))
-  //     return grunt.log.error("The --user arg is not valid");
-  //
-  //   if (!/^[0-9a-f]{30,50}$/.test(config.deployKey))
-  //     return grunt.log.error("The --key arg is not valid");
-  //
-  //   // Write an init file
-  //   grunt.file.write('.aerobatic', JSON.stringify(config));
-  //   grunt.log.writeln(("Application " + config.appId + " initialized").green);
-  // }
 
   grunt.registerMultiTask('aerobatic', 'Grunt tasks for building apps with the Aerobatic HTML5 cloud platform', function() {
     var config = readDotFileConfig();
