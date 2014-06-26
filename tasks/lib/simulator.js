@@ -109,7 +109,7 @@ module.exports = function(grunt) {
         return grunt.fail.fatal(err);
 
       var developmentUrl = app.url + '?sim=1&user=' + config.userId + '&port=' + options.port;
-      if (grunt.option('livereload'))
+      if (options.livereload === true)
         developmentUrl += '&reload=1';
 
       startLocalServer(options, developmentUrl);
