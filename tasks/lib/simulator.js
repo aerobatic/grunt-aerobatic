@@ -7,13 +7,14 @@ var _ = require('lodash'),
   path = require('path'),
   cors = require('cors'),
   http = require('http'),
+  https = require('https'),
   minimatch = require('minimatch'),
   watch = require('watch');
 
 module.exports = function(grunt) {
 
   // Upload the indexx.html file to the server.
-  function uploadIndexDocument(config, options, callback) {
+  function uploadIndexDocuments(pages, config, options, callback) {
     var headers = {
       'User-Agent': 'aerobatic-yoke',
       'Secret-Key': config.secretKey,
@@ -21,17 +22,19 @@ module.exports = function(grunt) {
     };
 
     var uploadUrl = options.airport + '/dev/' + config.appId + '/index';
-    grunt.log.writeln('Uploading ' + options.index + ' to ' + uploadUrl);
+    grunt.log.debug('Uploading ' + JSON.stringify(pages) + ' to ' + uploadUrl);
 
     var requestOptions = {
       method: 'post',
       headers: headers,
       url: uploadUrl,
-      form: {
-        indexDocument: grunt.file.read(options.index),
-        port: options.port
-      }
-    }
+      strictSSL: false,
+      form: {}
+    };
+
+    pages.forEach(function(page) {
+      requestOptions.form[path.basename(page, path.extname(page)) + 'Document'] = grunt.file.read(page);
+    });
 
     var postRequest = request(requestOptions, function(err, resp, body) {
       if (err)
@@ -47,28 +50,45 @@ module.exports = function(grunt) {
     });
   }
 
-  function watchIndexDocument(config, options) {
-    fs.watchFile(path.join(process.cwd(), options.index), function (curr, prev) {
-      grunt.log.writeln("Uploading changes to " + options.index + " document to the simulator");
+  function watchIndexDocuments(config, options) {
+    [options.index, options.login].forEach(function(page) {
+      fs.watchFile(path.join(process.cwd(), page), function (curr, prev) {
+        grunt.log.writeln("Uploading changes to " + page + " document to the simulator");
 
-      uploadIndexDocument(config, options, function(err, app) {
-        if (err)
-          grunt.fail.fatal('Error uploading modified version of ' + options.index + ' to simulator: ' + err.message);
+        uploadIndexDocuments([page], config, options, function(err, app) {
+          if (err)
+            grunt.fail.fatal('Error uploading modified version of ' + page + ' to simulator: ' + err.message);
 
-        grunt.log.debug('Done uploading ' + options.index + ' to simulator');
+          grunt.log.debug('Done uploading ' + page + ' to simulator');
+        });
       });
     });
   }
 
   function startLocalServer(options, developmentUrl) {
-    grunt.log.writeln("Starting simulator server on port " + options.port);
     var simulator = express();
+
+    simulator.use(function(req, res, next) {
+      grunt.log.debug("Serving asset " + req.url);
+      next();
+    });
+
+    simulator.use(function(err, req, res, next) {
+      if (err)
+        grunt.log.error(err);
+
+      next();
+    });
 
     simulator.get('/', function(req, res) {
       res.redirect(developmentUrl);
     });
 
     simulator.get('/' + options.index, function(req, res) {
+      res.redirect(developmentUrl);
+    });
+
+    simulator.get('/' + options.login, function(req, res) {
       res.redirect(developmentUrl);
     });
 
@@ -81,14 +101,29 @@ module.exports = function(grunt) {
       res.send("Page not found", 404);
     });
 
-    http.createServer(simulator).listen(options.port, function(){
-      grunt.log.writeln(('Express server listening on port ' + options.port).green);
-    });
+    var useSsl = true; ///^https:\/\//.test(developmentUrl);
+    if (useSsl) {
+      if (!options.ssl)
+        return grunt.fail.fatal('App requires https but no ssl options specified for sim task.');
+
+      var credentials = {
+        key: fs.readFileSync(path.join(process.cwd(), options.ssl.key)),
+        cert: fs.readFileSync(path.join(process.cwd(), options.ssl.cert)),
+        rejectUnauthorized: false
+      };
+      grunt.log.writeln("Starting https simulator server on port " + options.port);
+      https.createServer(credentials, simulator).listen(options.port);
+    }
+    else {
+      grunt.log.writeln(('Express http server listening on port ' + options.port).green);
+      http.createServer(simulator).listen(options.port);
+    }
   }
 
   return function(config, options) {
     _.defaults(options, {
       index: 'index.html',
+      login: 'login.html',
       port: 3000
     });
 
@@ -104,7 +139,11 @@ module.exports = function(grunt) {
     if (async === true)
       done = grunt.task.current.async();
 
-    uploadIndexDocument(config, options, function(err, app) {
+    var pages = [options.index];
+    if (grunt.file.exists(options.login))
+      pages.push(options.login);
+
+    uploadIndexDocuments(pages, config, options, function(err, app) {
       if (err)
         return grunt.fail.fatal(err);
 
@@ -115,10 +154,10 @@ module.exports = function(grunt) {
       startLocalServer(options, developmentUrl);
 
       // Watch for changes to the index file
-      watchIndexDocument(config, options);
+      watchIndexDocuments(config, options);
 
       if (grunt.option('open')) {
-        grunt.log.writeln("Launching browser to " + developmentUrl);
+        grunt.log.writeln("Launching browser to " + developmentUrl.underline.cyan);
         open(developmentUrl);
       }
       else {
