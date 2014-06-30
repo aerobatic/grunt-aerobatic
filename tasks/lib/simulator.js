@@ -101,10 +101,10 @@ module.exports = function(grunt) {
       res.send("Page not found", 404);
     });
 
-    var useSsl = true; ///^https:\/\//.test(developmentUrl);
+    var useSsl = /^https:\/\//.test(developmentUrl);
     if (useSsl) {
       if (!options.ssl)
-        return grunt.fail.fatal('App requires https but no ssl options specified for sim task.');
+        return grunt.fail.fatal(' but no ssl options specified for sim task.');
 
       var credentials = {
         key: fs.readFileSync(path.join(process.cwd(), options.ssl.key)),
