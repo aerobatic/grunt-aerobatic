@@ -150,6 +150,8 @@ module.exports = function(grunt) {
       var developmentUrl = app.url + '?sim=1&user=' + config.userId + '&port=' + options.port;
       if (options.livereload === true)
         developmentUrl += '&reload=1';
+      if (grunt.option('release') === true)
+        developmentUrl += '&release=1';
 
       startLocalServer(options, developmentUrl);
 

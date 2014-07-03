@@ -49,10 +49,14 @@ module.exports = function(grunt) {
     }
 
     var options = this.data;
-    _.extend(options, {
-      files: this.files,
-      airport: grunt.option('airport') || 'https://aerobaticapp.com'
-    });
+
+    // Used only for running the airport server locally
+    if (grunt.option('dev') === true)
+      options.airport = 'https://aerobaticapp.dev:7777';
+    else
+      options.airport = 'https://aerobaticapp.com';
+      
+    options.files = this.files;
 
     if (this.target == 'deploy') {
       grunt.log.writeln("Deploy new version of app to cloud");
