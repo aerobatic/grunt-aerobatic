@@ -7,6 +7,8 @@
  */
 var _ = require('lodash');
 
+_.mixin(require('underscore.string').exports());
+
 'use strict';
 
 module.exports = function(grunt) {
@@ -15,7 +17,8 @@ module.exports = function(grunt) {
   // creation: http://gruntjs.com/creating-tasks
 
   var simulator = require('./lib/simulator')(grunt),
-    deploy = require('./lib/deploy')(grunt);
+    deploy = require('./lib/deploy')(grunt),
+    snapshot = require('./lib/snapshot')(grunt);
 
   function readDotFileConfig() {
     if (!grunt.file.exists('.aerobatic')) {
@@ -55,18 +58,24 @@ module.exports = function(grunt) {
       options.airport = 'https://aerobaticapp.dev:7777';
     else
       options.airport = 'https://aerobaticapp.com';
-      
+
     options.files = this.files;
 
-    if (this.target == 'deploy') {
-      grunt.log.writeln("Deploy new version of app to cloud");
-      deploy(config, options);
+    switch (this.target) {
+      case 'deploy':
+        grunt.log.writeln("Deploy new version of app to cloud");
+        deploy(config, options);
+        break;
+      case 'sim':
+        grunt.log.writeln("Run the aerobatic simulator for a fully integrated development environment");
+        simulator(config, options);
+        break;
+      case 'snapshot':
+        grunt.log.writeln("Snapshot a url and upload it to Aerobatic");
+        snapshot(config, options);
+        break;
+      default:
+        grunt.log.error("Invalid target " + target);
     }
-    else if (this.target == 'sim') {
-      grunt.log.writeln("Run the aerobatic simulator for a fully integrated development environment");
-      simulator(config, options);
-    }
-    else
-      grunt.log.error("Invalid target " + target);
   });
 }
