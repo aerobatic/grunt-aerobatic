@@ -8,44 +8,12 @@ var os = require('os'),
   uuid = require('node-uuid'),
   async = require('async'),
   crypto = require('crypto'),
-  colors = require('colors');
+  colors = require('colors'),
+  upload = require('./upload');
 
 module.exports = function(grunt) {
-
-  function createDevApiRequest(config, url, method, form, callback) {
-    var headers = {
-      'User-Agent': 'aerobatic-yoke',
-      'Secret-Key': config.secretKey,
-      'UserId': config.userId
-    };
-
-    var requestOptions = {
-      method: method,
-      headers: headers,
-      url: url
-    };
-    if (form)
-      requestOptions.form = form;
-
-    return request(requestOptions, function(err, resp, body) {
-      if (err)
-        return callback(new Error("Error uploading index document: " + err.message));
-
-      if (resp.statusCode == 401)
-        return callback(new Error("Unauthorized upload. Check your secret key in the .aerobatic file."));
-      else if (resp.statusCode !== 200)
-        return callback(new Error(resp.statusCode + ": " + body));
-
-      grunt.log.debug("Parsing json response: " + body);
-      callback(null, JSON.parse(body));
-    });
-  }
-
   function uploadFile(config, filePath, url, callback) {
-    var request = createDevApiRequest(config, url, 'PUT', null, function(err, json) {
-      callback(err);
-    });
-
+    var request = upload(config, {url: url, method: 'PUT'}, callback);
     var form = request.form();
     form.append('file', fs.createReadStream(filePath));
   }
@@ -91,7 +59,7 @@ module.exports = function(grunt) {
         grunt.log.writeln('Cowboy mode - forcing all traffic to the new version. Yippee-ki-yay!'.yellow);
       }
 
-      createDevApiRequest(config, url, 'POST', versionData, function(err, version) {
+      upload(config, {url: url, form: versionData}, function(err, version) {
         if (err)
           return grunt.fail.fatal(err);
 

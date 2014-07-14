@@ -9,26 +9,15 @@ var _ = require('lodash'),
   http = require('http'),
   https = require('https'),
   minimatch = require('minimatch'),
-  watch = require('watch');
+  watch = require('watch'),
+  upload = require('./upload');
 
 module.exports = function(grunt) {
 
   // Upload the indexx.html file to the server.
   function uploadIndexDocuments(pages, config, options, callback) {
-    var headers = {
-      'User-Agent': 'aerobatic-yoke',
-      'Secret-Key': config.secretKey,
-      'UserId': config.userId
-    };
-
-    var uploadUrl = options.airport + '/dev/' + config.appId + '/index';
-    grunt.log.debug('Uploading ' + JSON.stringify(pages) + ' to ' + uploadUrl);
-
     var requestOptions = {
-      method: 'post',
-      headers: headers,
-      url: uploadUrl,
-      strictSSL: false,
+      url: options.airport + '/dev/' + config.appId + '/index',
       form: {}
     };
 
@@ -36,18 +25,7 @@ module.exports = function(grunt) {
       requestOptions.form[path.basename(page, path.extname(page)) + 'Document'] = grunt.file.read(page);
     });
 
-    var postRequest = request(requestOptions, function(err, resp, body) {
-      if (err)
-        return callback(new Error("Error uploading index document: " + err.message));
-
-      if (resp.statusCode == 401)
-        return callback(new Error("Unauthorized upload. Check your deploy key."));
-      else if (resp.statusCode !== 200)
-        return callback(new Error(resp.statusCode + ": " + body));
-
-      var app = JSON.parse(body);
-      callback(null, app);
-    });
+    upload(config, requestOptions, callback);
   }
 
   function watchIndexDocuments(config, options) {
