@@ -1,7 +1,7 @@
 {
   "name": "grunt-aerobatic",
   "description": "Grunt tasks for building apps with the Aerobatic HTML5 cloud platform",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "homepage": "https://github.com/aerobatic/grunt-aerobatic",
   "author": {
     "name": "David Von Lehman",
@@ -46,7 +46,6 @@
     "colors": "^0.6.2",
     "express": "^4.4.3",
     "watch": "^0.10.0",
-    "zlib": "^1.0.5",
     "cors": "^2.3.1",
     "minimatch": "^0.3.0",
     "node-uuid": "^1.4.1",
