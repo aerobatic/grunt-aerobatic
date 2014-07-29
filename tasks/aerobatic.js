@@ -18,7 +18,8 @@ module.exports = function(grunt) {
 
   var simulator = require('./lib/simulator')(grunt),
     deploy = require('./lib/deploy')(grunt),
-    snapshot = require('./lib/snapshot')(grunt);
+    snapshot = require('./lib/snapshot')(grunt),
+    cache = require('./lib/cache')(grunt);
 
   function readDotFileConfig() {
     if (!grunt.file.exists('.aerobatic')) {
@@ -73,6 +74,9 @@ module.exports = function(grunt) {
       case 'snapshot':
         grunt.log.writeln("Snapshot a url and upload it to Aerobatic");
         snapshot(config, options);
+        break;
+      case 'cache':
+        cache(config, options);
         break;
       default:
         grunt.log.error("Invalid target " + target);

@@ -1,14 +1,11 @@
 var os = require('os'),
   path = require('path'),
-  request = require('request'),
   fs = require('fs'),
   _ = require('lodash'),
-  open = require('open'),
   spawn = require("child_process").spawn,
-  request = require('request'),
   parse = require('url').parse,
   cheerio = require('cheerio'),
-  upload = require('./upload'),
+  api = require('./api'),
   open = require('open');
 
 module.exports = function(grunt) {
@@ -117,10 +114,11 @@ module.exports = function(grunt) {
       // Upload the snapshot to Aerobatic
       var uploadOptions = {
         url: options.airport + '/dev/' + config.appId + '/snapshot/' + snapshotPath,
+        method: 'POST',
         form: {snapshot: html}
       };
 
-      upload(config, uploadOptions, function(err, res) {
+      api(config, uploadOptions, function(err, res) {
         if (err)
           return done(new Error("Error uploading snapshot " + snapshotPath + ": " + err));
 

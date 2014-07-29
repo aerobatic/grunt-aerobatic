@@ -10,7 +10,7 @@ var _ = require('lodash'),
   https = require('https'),
   minimatch = require('minimatch'),
   watch = require('watch'),
-  upload = require('./upload');
+  api = require('./api');
 
 module.exports = function(grunt) {
 
@@ -25,7 +25,7 @@ module.exports = function(grunt) {
       requestOptions.form[path.basename(page, path.extname(page)) + 'Document'] = grunt.file.read(page);
     });
 
-    upload(config, requestOptions, callback);
+    api(config, requestOptions, callback);
   }
 
   function watchIndexDocuments(config, options) {

@@ -3,17 +3,16 @@ var os = require('os'),
   request = require('request'),
   fs = require('fs'),
   _ = require('lodash'),
-  zlib = require('zlib'),
   open = require('open'),
   uuid = require('node-uuid'),
   async = require('async'),
   crypto = require('crypto'),
   colors = require('colors'),
-  upload = require('./upload');
+  api = require('./api');
 
 module.exports = function(grunt) {
   function uploadFile(config, filePath, url, callback) {
-    var request = upload(config, {url: url, method: 'PUT'}, callback);
+    var request = api(config, {url: url, method: 'PUT'}, callback);
     var form = request.form();
     form.append('file', fs.createReadStream(filePath));
   }
@@ -59,7 +58,7 @@ module.exports = function(grunt) {
         grunt.log.writeln('Cowboy mode - forcing all traffic to the new version. Yippee-ki-yay!'.yellow);
       }
 
-      upload(config, {url: url, form: versionData}, function(err, version) {
+      api(config, {url: url, form: versionData}, function(err, version) {
         if (err)
           return grunt.fail.fatal(err);
 
