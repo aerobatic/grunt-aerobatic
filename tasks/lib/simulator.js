@@ -43,7 +43,7 @@ module.exports = function(grunt) {
     });
   }
 
-  function startLocalServer(options, developmentUrl) {
+  function startLocalServer(options) {
     var simulator = express();
 
     simulator.use(function(req, res, next) {
@@ -79,14 +79,12 @@ module.exports = function(grunt) {
       res.send("Page not found", 404);
     });
 
-    var useSsl = /^https:\/\//.test(developmentUrl);
-    if (useSsl) {
-      if (!options.ssl)
-        return grunt.fail.fatal(' but no ssl options specified for sim task.');
-
+    if (options.protocol == 'https') {
       var credentials = {
-        key: fs.readFileSync(path.join(process.cwd(), options.ssl.key)),
-        cert: fs.readFileSync(path.join(process.cwd(), options.ssl.cert)),
+        key: options.key || grunt.file.read(path.join(__dirname, '../certs', 'server.key')).toString(),
+        cert: options.cert || grunt.file.read(path.join(__dirname, '../certs', 'server.crt')).toString(),
+        ca: options.ca || grunt.file.read(path.join(__dirname, '../certs', 'ca.crt')).toString(),
+        passphrase: options.passphrase || 'grunt',
         rejectUnauthorized: false
       };
       grunt.log.writeln("Starting https simulator server on port " + options.port);
@@ -102,8 +100,22 @@ module.exports = function(grunt) {
     _.defaults(options, {
       index: 'index.html',
       login: 'login.html',
+      protocol: 'http',
       port: 3000
     });
+
+    // Override the watch livereload settings with the built in SSL cert
+    if (grunt.config('watch.options.livereload') === true) {
+      options.livereload = true;
+
+      if (options.protocol === 'https') {
+        grunt.log.debug("Overriding livereload SSL settings");
+        grunt.config('watch.options.livereload', {
+          key: options.key || grunt.file.read(path.join(__dirname, '../certs', 'server.key')).toString(),
+          cert: options.cert || grunt.file.read(path.join(__dirname, '../certs', 'server.crt')).toString()
+        });
+      }
+    }
 
     if (!grunt.file.exists(options.index)) {
       grunt.log.error('The index document ' + options.index + ' does not exist');
@@ -131,7 +143,7 @@ module.exports = function(grunt) {
       if (grunt.option('release') === true)
         developmentUrl += '&release=1';
 
-      startLocalServer(options, developmentUrl);
+      startLocalServer(options);
 
       // Watch for changes to the index file
       watchIndexDocuments(config, options);
