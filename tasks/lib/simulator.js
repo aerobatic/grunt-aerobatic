@@ -4,6 +4,7 @@ var _ = require('lodash'),
   colors = require('colors'),
   express = require('express'),
   fs = require('fs'),
+  mime = require('mime'),
   path = require('path'),
   cors = require('cors'),
   http = require('http'),
@@ -43,20 +44,8 @@ module.exports = function(grunt) {
     });
   }
 
-  function startLocalServer(options) {
+  function startLocalServer(options, developmentUrl) {
     var simulator = express();
-
-    simulator.use(function(req, res, next) {
-      grunt.log.debug("Serving asset " + req.url);
-      next();
-    });
-
-    simulator.use(function(err, req, res, next) {
-      if (err)
-        grunt.log.error(err);
-
-      next();
-    });
 
     simulator.get('/', function(req, res) {
       res.redirect(developmentUrl);
@@ -71,7 +60,21 @@ module.exports = function(grunt) {
     });
 
     simulator.use(cors());
-    simulator.use(express.static(process.cwd()));
+    simulator.use(express.static(process.cwd(), {
+      index: false
+    }));
+
+    simulator.use(function(req, res, next) {
+      grunt.log.debug("Serving asset " + req.url);
+      next();
+    });
+
+    simulator.use(function(err, req, res, next) {
+      if (err)
+        grunt.log.error(err);
+
+      next();
+    });
 
     // Anything not served by the static middleware is a 404
     simulator.get('/*', function(req, res) {
@@ -143,7 +146,7 @@ module.exports = function(grunt) {
       if (grunt.option('release') === true)
         developmentUrl += '&release=1';
 
-      startLocalServer(options);
+      startLocalServer(options, developmentUrl);
 
       // Watch for changes to the index file
       watchIndexDocuments(config, options);
