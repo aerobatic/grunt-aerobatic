@@ -51,7 +51,6 @@
     "node-uuid": "^1.4.1",
     "async": "^0.9.0",
     "cheerio": "^0.17.0",
-    "underscore.string": "^2.3.3",
-    "mime": "^1.2.11"
+    "underscore.string": "^2.3.3"
   }
 }
