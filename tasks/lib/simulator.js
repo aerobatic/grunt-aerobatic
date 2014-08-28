@@ -78,7 +78,7 @@ module.exports = function(grunt) {
     // Anything not served by the static middleware is a 404
     simulator.get('/*', function(req, res) {
       res.status(404);
-      res.send("Page not found", 404);
+      res.send("Page not found");
     });
 
     if (options.protocol == 'https') {
