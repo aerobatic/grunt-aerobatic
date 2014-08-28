@@ -37,7 +37,7 @@ module.exports = function(grunt) {
     var snapshotPath;
 
     if (snapshotUrl.path && snapshotUrl.path.length > 1)
-      snapshotPath = snapshotUrl.slice(1);
+      snapshotPath = snapshotUrl.path.slice(1);
     else if (snapshotUrl.hash) {
       // Detect hash bang urls
       if (_.startsWith(snapshotUrl.hash, '#!/'))
