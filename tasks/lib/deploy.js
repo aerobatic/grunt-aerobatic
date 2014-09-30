@@ -12,7 +12,16 @@ var os = require('os'),
 
 module.exports = function(grunt) {
   function uploadFile(config, filePath, url, callback) {
-    var request = api(config, {url: url, method: 'PUT'}, callback);
+
+    var requestOptions = {
+      url: url,
+      method: 'POST',
+      headers: {
+        'file-size': fs.statSync(filePath).size
+      }
+    };
+
+    var request = api(config, requestOptions, callback);
     var form = request.form();
     form.append('file', fs.createReadStream(filePath));
   }

@@ -20,7 +20,7 @@ module.exports = function(config, options, callback) {
 
     if (resp.statusCode == 401)
       return callback(new Error("Unauthorized upload. Check your deploy key."));
-    else if (resp.statusCode !== 200)
+    else if (resp.statusCode > 203)
       return callback(new Error(resp.statusCode + ": " + body));
 
     callback(null, JSON.parse(body));

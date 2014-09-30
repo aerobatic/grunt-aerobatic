@@ -17,15 +17,18 @@ module.exports = function(grunt) {
   // Upload the indexx.html file to the server.
   function uploadIndexDocuments(pages, config, options, callback) {
     var requestOptions = {
-      url: options.airport + '/dev/' + config.appId + '/index',
+      method: 'POST',
+      url: options.airport + '/dev/' + config.appId + '/simulator',
       form: {}
     };
 
-    pages.forEach(function(page) {
-      requestOptions.form[path.basename(page, path.extname(page)) + 'Document'] = grunt.file.read(page);
-    });
+    // Attach the files as multi-part
+    var request = api(config, requestOptions, callback);
+    var form = request.form();
 
-    api(config, requestOptions, callback);
+    pages.forEach(function(page) {
+      form.append(path.basename(page, '.html'), fs.createReadStream(page));
+    });
   }
 
   function watchIndexDocuments(config, options) {
