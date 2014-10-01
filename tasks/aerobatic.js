@@ -52,7 +52,16 @@ module.exports = function(grunt) {
       return;
     }
 
-    var options = this.data;
+    var options = this.options();
+    _.extend(options, this.data);
+    options.files = this.files;
+
+    _.defaults(options, {
+      root: '',
+      cowboy: false,
+      index: 'index.html',
+      login: 'login.html'
+    });
 
     // Used only for running the airport server locally
     if (grunt.option('dev') === true)
@@ -60,7 +69,8 @@ module.exports = function(grunt) {
     else
       options.airport = 'https://aerobaticapp.com';
 
-    options.files = this.files;
+    if (grunt.option('cowboy') === true)
+      options.cowboy = true;
 
     switch (this.target) {
       case 'deploy':

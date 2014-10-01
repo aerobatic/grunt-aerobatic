@@ -45,11 +45,22 @@ module.exports = function(grunt) {
 
     // PUT each file individually
     var uploadCount = 0;
+
+    if (options.files[0].src.length === 0)
+      return grunt.fail.fatal("No files found to deploy");
+
     async.each(options.files[0].src, function(filePath, cb) {
-      var relativePath = path.relative(process.cwd(), filePath);
+      // Ensure the slashes are forward in the relative path
+      var relativePath = path.relative(process.cwd(), filePath).replace(/\\/g, '/');
+
+      // Correct the index documents to always be at the root.
+      var baseName = path.basename(relativePath);
+      if (baseName == options.index || baseName == options.login) {
+        relativePath = baseName;
+      }
 
       var uploadUrl = options.airport + '/dev/' + config.appId + '/deploy/' + versionData.storageKey + '/' + relativePath;
-      grunt.log.debug('Deploying file ' + filePath);
+      grunt.log.debug('Deploying file ' + relativePath);
       uploadCount++;
       uploadFile(config, filePath, uploadUrl, cb);
     }, function(err) {
@@ -62,7 +73,7 @@ module.exports = function(grunt) {
       var url = options.airport + '/dev/' + config.appId + '/version';
       grunt.log.debug('Creating new version');
 
-      if (grunt.option('cowboy') === true) {
+      if (options.cowboy === true) {
         versionData.forceAllTrafficToNewVersion = '1';
         grunt.log.writeln('Cowboy mode - forcing all traffic to the new version. Yippee-ki-yay!'.yellow);
       }

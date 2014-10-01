@@ -27,13 +27,15 @@ module.exports = function(grunt) {
     var form = request.form();
 
     pages.forEach(function(page) {
-      form.append(path.basename(page, '.html'), fs.createReadStream(page));
+      var indexPagePath = path.join(process.cwd(), options.root, page);
+      grunt.log.debug("Uploading " + indexPagePath);
+      form.append(path.basename(page, '.html'), fs.createReadStream(indexPagePath));
     });
   }
 
   function watchIndexDocuments(config, options) {
     [options.index, options.login].forEach(function(page) {
-      fs.watchFile(path.join(process.cwd(), page), function (curr, prev) {
+      fs.watchFile(path.join(process.cwd(), options.root, page), function (curr, prev) {
         grunt.log.writeln("Uploading changes to " + page + " document to the simulator");
 
         uploadIndexDocuments([page], config, options, function(err, app) {
@@ -62,9 +64,24 @@ module.exports = function(grunt) {
     });
 
     simulator.use(cors());
-    simulator.use(express.static(process.cwd(), {
-      index: false
-    }));
+    simulator.use(function(req, res, next) {
+      var debugMiddleware = express.static(path.join(process.cwd(), options.root), {
+        index: false
+      });
+
+      var buildMiddleware = express.static(process.cwd(), {
+        index: false
+      });
+
+      // If the path starts with dist or build assume these are the built assets,
+      // so don't prepend the root path
+      if (/^\/(dist|build)\//.test(req.path)) {
+        buildMiddleware(req, res, next);
+      }
+      else {
+        debugMiddleware(req, res, next);
+      }
+    });
 
     simulator.use(function(req, res, next) {
       grunt.log.debug("Serving asset " + req.url);
@@ -103,8 +120,6 @@ module.exports = function(grunt) {
 
   return function(config, options) {
     _.defaults(options, {
-      index: 'index.html',
-      login: 'login.html',
       protocol: 'http',
       port: 3000
     });
@@ -122,7 +137,7 @@ module.exports = function(grunt) {
       }
     }
 
-    if (!grunt.file.exists(options.index)) {
+    if (!grunt.file.exists(path.join(options.root, options.index))) {
       grunt.log.error('The index document ' + options.index + ' does not exist');
       return false;
     }
