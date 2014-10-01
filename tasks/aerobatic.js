@@ -58,7 +58,6 @@ module.exports = function(grunt) {
 
     _.defaults(options, {
       root: '',
-      cowboy: false,
       index: 'index.html',
       login: 'login.html'
     });
@@ -68,9 +67,6 @@ module.exports = function(grunt) {
       options.airport = 'https://aerobaticapp.dev:7777';
     else
       options.airport = 'https://aerobaticapp.com';
-
-    if (grunt.option('cowboy') === true)
-      options.cowboy = true;
 
     switch (this.target) {
       case 'deploy':

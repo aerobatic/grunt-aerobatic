@@ -23,7 +23,7 @@ module.exports = function(grunt) {
         });
         break;
       case 'view':
-        var key = grunt.option(key);
+        var key = grunt.option('key');
         if (_.isEmpty(key))
           return grunt.fail.fatal("You must specify a key to view, i.e. 'grunt aerobatic:cache:view --key=keyname'");
 
@@ -33,7 +33,7 @@ module.exports = function(grunt) {
           grunt.log.writeln(contents);
         });
       case 'del':
-        var key = grunt.option(key);
+        var key = grunt.option('key');
         if (_.isEmpty(key))
           return grunt.fail.fatal("You must specify a key to delete, i.e. 'grunt aerobatic:cache:del --key=keyname'");
 

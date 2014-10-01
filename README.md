@@ -1,6 +1,6 @@
 # grunt-aerobatic
 
-> Grunt tasks for building apps with the [Aerobatic](http://www.aerobatic.io) HTML5 cloud platform
+> Grunt tasks for building apps with the [Aerobatic](http://www.aerobatic.com) - single page app hosting, built for front-end developers.
 
 ## Getting Started
 This plugin requires Grunt `~0.4.5`
@@ -25,17 +25,39 @@ In your project's Gruntfile, add a section named `aerobatic` to the data object 
 ```js
 grunt.initConfig({
   aerobatic: {
+    options: {
+      index: 'index.html'
+      root: '/'
+    },
     deploy: {
+      cowboy: true,
       src: ['index.html', 'dist/*.*', 'favicons/*', 'partials/*.html', 'images/*.jpeg'],
     },
     sim: {
-      index: 'index.html',
       port: 3000,
       livereload: true
     }
   }
 });
 ```
+### Options
+####index
+Type: `String`
+Default value: `index.html`
+
+The name of the index document representing the entry point to your single page app.
+
+####login
+Type: `String`
+Default value: `login.html`
+
+The name of the login index document. Only applicable when [OAuth is enabled](http://www.aerobatic.com/docs/authentication) for your app. At a minimum this page should include a link to `/auth` which will initiate the authentication flow.
+
+####root
+Type: 'String'
+Default value: `/`
+
+The root where your static assets and index pages are located. Sometimes developers like to put everything in a `src` or `app` directory nested in the root of the repo.
 
 ### The "deploy" target
 The `deploy` target deploys the current local sources as a new version. By default this new version will only be
@@ -51,8 +73,14 @@ configuration, you can specify the `--cowboy` flag.
 Type: `Array`
 Specifies the files that should be deployed. Typically you will use the output of other grunt tasks that have built the assets for the production environment, i.e. [grunt-contrib-uglify](https://github.com/gruntjs/grunt-contrib-uglify), [grunt-contrib-sass](https://github.com/gruntjs/grunt-contrib-sass), etc.
 
+####cowboy
+Type: `boolean`
+Default value: `false`
+
+When deploying, force the new version to take 100% of live traffic immediately. Useful when you are just getting started and the risks of bypassing the staging process is low or you if that's just the way you roll.
+
 ####Command Options
-**--cowboy** - Force the new version to take 100% of live traffic immedietely. Useful when you are just getting started and the risks of bypassing the staging process is low or you if that's just the way you roll.
+**--cowboy** - Override the default setting specified in the Gruntfile.
 
 **--name** - The name of the new version. Defaults to an auto-generated timestamp.
 
@@ -68,7 +96,7 @@ grunt.registerTask('deploy', ['build', 'aerobatic:deploy']);
 
 **Sample Call**
 ```bash
-grunt deploy --live --name '1.2.10' --message 'New messaging feature'
+grunt deploy --cowboy --name '1.2.10' --message 'New messaging feature'
 ```
 
 ### The "sim" target
@@ -82,12 +110,6 @@ you work so your browser always reflects your latest changes.
 In simulator mode you would work off a URL in the format: `http://<your_app_name>.aerobaticapp.com?sim=1&user=<your_user_id>&reload=1`
 
 The aerobatic platform detects the `sim=1` and automatically repoints your scripts, stylesheets, templates, images, etc. to `http://localhost:3000`.
-
-####index
-Type: `String`
-Default value: `index.html`
-
-The name of the index document representing the entry point to your single page app.
 
 #### port
 Type: `Number`

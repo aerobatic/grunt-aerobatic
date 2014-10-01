@@ -32,6 +32,14 @@ module.exports = function(grunt) {
     grunt.log.writeln('Executing the deploy task');
     var done = grunt.task.current.async();
 
+    _.defaults(options, {
+      cowboy: false
+    });
+
+    // Allow overriding the cowboy mode from the command line.
+    if (grunt.option('cowboy') === true)
+      options.cowboy = true;
+
     // Create a new version object
     var versionId = uuid.v1().toString();
     var versionData= {
@@ -89,7 +97,7 @@ module.exports = function(grunt) {
           open(version.previewUrl);
         }
         else {
-          if (grunt.option('cowboy') === true)
+          if (options.cowboy === true)
             grunt.log.ok("New version is live at " + version.previewUrl.cyan.underline);
           else
             grunt.log.ok("Preview at: " + version.previewUrl.cyan.underline);
