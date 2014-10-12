@@ -5,7 +5,8 @@
  * Copyright (c) 2014 David Von Lehman
  * Licensed under the MIT license.
  */
-var _ = require('lodash');
+var _ = require('lodash'),
+  execSync = require('exec-sync');
 
 _.mixin(require('underscore.string').exports());
 
@@ -38,12 +39,31 @@ module.exports = function(grunt) {
     return config;
   }
 
+  function readGitConfig() {
+    var config = {
+      userId: execSync('git config --get aerobatic.userId'),
+      appId: execSync('git config --get aerobatic.appId'),
+      accessKey: execSync('git config --get aerobatic.accessKey')
+    };
+
+    if (!config.userId && !config.appId && !config.accessKey)
+      return null;
+
+    if (!config.appId || !config.accessKey) {
+      grunt.fail.fatal("gitconfig requires keys aerobatic.userId, aerobatic.appId, and aerobatic.orgId");
+      return null;
+    }
+
+    return config;
+  }
+
   function validateUuid(uuid) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uuid);
   }
 
-  grunt.registerMultiTask('aerobatic', 'Grunt tasks for building apps with the Aerobatic HTML5 cloud platform', function() {
-    var config = readDotFileConfig();
+  grunt.registerMultiTask('aerobatic', 'Grunt tasks for building apps with the Aerobatic HTML5 hosting platform', function() {
+    // First try and read the git config before falling back to the legacy .aerobatic file
+    var config = readGitConfig() || readDotFileConfig();
     if (!config)
       return;
 
