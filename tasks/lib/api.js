@@ -1,6 +1,6 @@
 var request = require('request'),
   _ = require('lodash'),
-  manifest = require('./package.json');
+  manifest = require('../../package.json');
 
 module.exports = function(config, options, callback) {
   _.defaults(options, {
