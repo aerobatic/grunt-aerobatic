@@ -35,7 +35,7 @@ module.exports = function(grunt) {
       delete config.secretKey;
     }
 
-    if (!config.appId || !config.secretKey || !config.userId) {
+    if (!config.appId || !config.accessKey || !config.userId) {
       grunt.fail.fatal(".aerobatic file is corrupt. Login to your app dashboard to recreate it.");
       return null;
     }
