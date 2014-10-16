@@ -1,5 +1,6 @@
 var request = require('request'),
-  _ = require('lodash');
+  _ = require('lodash'),
+  manifest = require('./package.json');
 
 module.exports = function(config, options, callback) {
   _.defaults(options, {
@@ -10,9 +11,9 @@ module.exports = function(config, options, callback) {
 
   _.extend(options.headers, {
     'User-Agent': 'grunt-aerobatic',
-    'Secret-Key': config.secretKey, //TODO: Deprecate this header
     'Access-Key': config.accessKey,
-    'UserId': config.userId
+    'UserId': config.userId,
+    'Agent-Version': manifest.version
   });
 
   return request(options, function(err, resp, body) {

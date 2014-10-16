@@ -1,8 +1,11 @@
 var os = require('os'),
   path = require('path'),
   request = require('request'),
+  Stream = require('stream'),
   fs = require('fs'),
   _ = require('lodash'),
+  zlib = require('zlib'),
+  shortid = require('shortid'),
   open = require('open'),
   uuid = require('node-uuid'),
   async = require('async'),
@@ -10,20 +13,49 @@ var os = require('os'),
   colors = require('colors'),
   api = require('./api');
 
+var compressExtensions = ['.html', '.css', '.js', '.json', '.txt'];
+
 module.exports = function(grunt) {
-  function uploadFile(config, filePath, url, callback) {
+  function uploadFile(config, filePath, url, compress, callback) {
+    grunt.log.debug("Start upload of " + filePath);
 
     var requestOptions = {
       url: url,
-      method: 'POST',
-      headers: {
-        'file-size': fs.statSync(filePath).size
-      }
+      headers: {},
+      method: 'POST'
     };
 
-    var request = api(config, requestOptions, callback);
-    var form = request.form();
-    form.append('file', fs.createReadStream(filePath));
+    function upload(file) {
+      grunt.log.debug('Uploading file ' + file);
+      fs.stat(file, function(err, stat) {
+        requestOptions.headers['Content-Length'] = stat.size;
+        return fs.createReadStream(file)
+          .pipe(api(config, requestOptions, callback));
+      });
+    }
+
+    if (compress === true) {
+      grunt.log.debug('Compressing file ' + filePath);
+      requestOptions.headers['Content-Type'] = 'application/gzip';
+
+      // Use a random file name to avoid chance of collisions
+      var gzipFile = path.join(os.tmpdir(), shortid.generate() + path.extname(filePath) + '.gz');
+
+      grunt.log.debug("Writing to gzipFile " + gzipFile);
+      fs.createReadStream(filePath)
+        .pipe(zlib.createGzip())
+        .pipe(fs.createWriteStream(gzipFile))
+        .on('error', function(err) {
+          grunt.log.error("Error in pipe: " + err);
+          return callback(err);
+        })
+        .on('finish', function() {
+          return upload(gzipFile);
+        });
+    }
+    else {
+      upload(filePath);
+    }
   }
 
   return function(config, options) {
@@ -41,12 +73,12 @@ module.exports = function(grunt) {
       options.cowboy = true;
 
     // Create a new version object
-    var versionId = uuid.v1().toString();
+    var versionId = shortid.generate();
     var versionData= {
       versionId: versionId,
       appId: config.appId,
       userId: config.userId,
-      storageKey: crypto.createHash('md5').update(versionId).digest('hex').substring(0, 9),
+      storageKey: versionId, //crypto.createHash('md5').update(versionId).digest('hex').substring(0, 9),
       name: grunt.option('name'),
       message: grunt.option('message')
     };
@@ -70,7 +102,9 @@ module.exports = function(grunt) {
       var uploadUrl = options.airport + '/dev/' + config.appId + '/deploy/' + versionData.storageKey + '/' + relativePath;
       grunt.log.debug('Deploying file ' + relativePath);
       uploadCount++;
-      uploadFile(config, filePath, uploadUrl, cb);
+
+      var compress = shouldCompress(filePath, options);
+      uploadFile(config, filePath, uploadUrl, compress, cb);
     }, function(err) {
       if (err)
         return grunt.fail.fatal("Error deploying source files: " + err);
@@ -106,5 +140,16 @@ module.exports = function(grunt) {
         done();
       });
     });
+  }
+
+  function shouldCompress(filePath, options) {
+    // Don't compress the index or login page
+    if (_.contains([options.login, options.index], path.basename(filePath)))
+      return false;
+
+    if (_.contains(compressExtensions, path.extname(filePath)))
+      return true;
+
+    return false;
   }
 };
