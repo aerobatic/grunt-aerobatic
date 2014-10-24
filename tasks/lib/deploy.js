@@ -13,7 +13,7 @@ var os = require('os'),
   colors = require('colors'),
   api = require('./api');
 
-var compressExtensions = ['.html', '.css', '.js', '.json', '.txt'];
+var compressExtensions = ['.html', '.css', '.js', '.json', '.txt', '.svg'];
 
 module.exports = function(grunt) {
   function uploadFile(config, filePath, url, compress, callback) {

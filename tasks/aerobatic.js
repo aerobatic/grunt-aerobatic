@@ -5,8 +5,7 @@
  * Copyright (c) 2014 David Von Lehman
  * Licensed under the MIT license.
  */
-var _ = require('lodash'),
-  execSync = require('exec-sync');
+var _ = require('lodash');
 
 _.mixin(require('underscore.string').exports());
 
