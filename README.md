@@ -26,12 +26,18 @@ In your project's Gruntfile, add a section named `aerobatic` to the data object 
 grunt.initConfig({
   aerobatic: {
     options: {
-      index: 'index.html'
-      root: '/'
+      base: {
+        debug: '/src' // Optional, defaults to '/'
+        release: '/build' // Defaults to '/'
+      },
+      pages: {
+        index: 'index.html' // Optional
+        login: 'login.html' // Optional
+      }
     },
     deploy: {
       cowboy: true,
-      src: ['index.html', 'dist/*.*', 'favicons/*', 'partials/*.html', 'images/*.jpeg'],
+      src: ['build/**/*.*'],
     },
     sim: {
       port: 3000,
@@ -40,24 +46,89 @@ grunt.initConfig({
   }
 });
 ```
+
+By default the `index.html` page is assume to reside at the root of the repo
+and assets are built to a top-level directory such as `build` or `dist`.
+The directory structure would be structured along these lines:
+
+```bash
+.
+├── Gruntfile.js
+│   index.html
+├── css
+│   └── styles.css
+├── js
+│   └── app.js
+├── images
+├── build
+│   └── styles.min.css
+│   └── app.min.css
+```
+
+URL paths would then look like so:
+
+```html
+<link data-aero-build="debug" href="/css/styles.css">
+<link data-aero-build="debug" href="/build/styles.min.css">
+
+<script data-aero-build="debug" src="/js/app.js"></script>
+<script data-aero-build="release" src="/build/app.min.js"></script>
+```
+
 ### Options
-####index
-Type: `String`
-Default value: `index.html`
 
-The name of the index document representing the entry point to your single page app.
+####base
+Type: `Object`
+Default value: `null`
 
-####login
-Type: `String`
-Default value: `login.html`
+Allows you to override the base directory for URLs served in both debug and release builds.
+For example a common convention is for the `index.html` page all css, js, etc. to live
+beneath a `src` directory at the root of the repo. Built assets may be written to a
+build directory.
 
-The name of the login index document. Only applicable when [OAuth is enabled](http://www.aerobatic.com/docs/authentication) for your app. At a minimum this page should include a link to `/auth` which will initiate the authentication flow.
+```bash
+.
+├── Gruntfile.js
+├── src
+│   └── index.html
+│   ├── css
+│   │   └── styles.css
+│   ├── js
+│   │   └── app.js
+│   ├── images
+├── build
+│   └── styles.min.css
+│   └── app.min.css
+```
 
-####root
-Type: 'String'
-Default value: `/`
+The corresponding `aerobatic` options for this structure would be this:
 
-The root where your static assets and index pages are located. Sometimes developers like to put everything in a `src` or `app` directory nested in the root of the repo.
+```js
+options: {
+  base: {
+    debug: '/src',
+    release: '/build'
+  }
+}
+```
+
+In your `index.html` file, the assets URLs would omit the leading `/src` and `/build` paths since
+they are implicitly treated as the root.
+
+```html
+<link data-aero-build="debug" href="/css/styles.css">
+<link data-aero-build="debug" href="/styles.min.css">
+
+<script data-aero-build="debug" src="/js/app.js"></script>
+<script data-aero-build="release" src="/app.min.js"></script>
+```
+####pages
+Type: `Object` Default value: `{index: 'index.html'}`
+
+Allows you to override the names of the host pages for your app. For basic apps
+only an `index` page is required which serves as the entry point for your single
+page application. For apps with OAuth an additional `login` page
+should be specified. Read more in the [OAuth documentation](http://www.aerobatic.com/docs/authentication).
 
 ### The "deploy" target
 The `deploy` target deploys the current local sources as a new version. By default this new version will only be
@@ -121,6 +192,7 @@ The port number to run the simulator on.
 Type: `Boolean`
 Default value: `false`
 
+
 Automatically adds the livereload script in the HTML source of the
 development URL. Designed to be used in conjunction with the
 [grunt-contrib-watch](https://github.com/gruntjs/grunt-contrib-watch)
@@ -132,6 +204,9 @@ task.
 
 ####Command Options
 **--open** - Launch a browser to the simulator URL. Useful the first time you run `grunt sim`, after that you may choose to simply refresh the
+
+**--release** - Run the simulator in release mode to test the built minified assets locally before deploying.
+
 
 #### Watch and Reload
 One of the powerful workflows grunt enables is watching your filesystem for

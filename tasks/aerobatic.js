@@ -53,15 +53,24 @@ module.exports = function(grunt) {
       return;
     }
 
-    var options = this.options();
+    var options = this.options() || {};
+
     _.extend(options, this.data);
     options.files = this.files;
 
-    _.defaults(options, {
-      root: '',
-      index: 'index.html',
-      login: 'login.html'
-    });
+    if (!options.base)
+      options.base = {};
+    if (!options.base.debug)
+      options.base.debug = '';
+    if (!options.base.release)
+      options.base.release = '';
+
+    if (!options.pages)
+      options.pages = {};
+
+    // There must be an index page. Default to index.html if none is specified.
+    if (!options.pages.index)
+      options.pages.index = 'index.html';
 
     // Used only for running the airport server locally
     if (grunt.option('dev') === true)

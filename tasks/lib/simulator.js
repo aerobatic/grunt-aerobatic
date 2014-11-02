@@ -15,7 +15,7 @@ var _ = require('lodash'),
 module.exports = function(grunt) {
 
   // Upload the indexx.html file to the server.
-  function uploadIndexDocuments(pages, config, options, callback) {
+  function uploadIndexPages(pagePaths, config, options, callback) {
     var requestOptions = {
       method: 'POST',
       url: options.airport + '/dev/' + config.appId + '/simulator',
@@ -26,26 +26,35 @@ module.exports = function(grunt) {
     var request = api(config, requestOptions, callback);
     var form = request.form();
 
-    pages.forEach(function(page) {
-      var indexPagePath = path.join(process.cwd(), options.root, page);
-      grunt.log.debug("Uploading " + indexPagePath);
-      form.append(path.basename(page, '.html'), fs.createReadStream(indexPagePath));
+    pagePaths.forEach(function(pagePath) {
+      grunt.log.debug("Uploading " + pagePath);
+      form.append(path.basename(pagePath, '.html'), fs.createReadStream(pagePath));
     });
   }
 
-  function watchIndexDocuments(config, options) {
-    [options.index, options.login].forEach(function(page) {
-      fs.watchFile(path.join(process.cwd(), options.root, page), function (curr, prev) {
-        grunt.log.writeln("Uploading changes to " + page + " document to the simulator");
+  function watchIndexPages(config, options) {
+    options.pagePaths.forEach(function(pagePath) {
+      fs.watchFile(pagePath, function (curr, prev) {
+        grunt.log.writeln("Uploading changes to " + path.basename(pagePath) + " document to the simulator");
 
-        uploadIndexDocuments([page], config, options, function(err, app) {
+        uploadIndexPages([pagePath], config, options, function(err, app) {
           if (err)
-            grunt.fail.fatal('Error uploading modified version of ' + page + ' to simulator: ' + err.message);
+            grunt.fail.fatal('Error uploading modified version of ' + path.basename(pagePath) + ' to simulator: ' + err.message);
 
-          grunt.log.debug('Done uploading ' + page + ' to simulator');
+          grunt.log.debug('Done uploading ' + path.basename(pagePath) + ' to simulator');
         });
       });
     });
+  }
+
+  function verifyIndexPagesExist(options) {
+    options.pagePaths.forEach(function(pagePath) {
+      if (!grunt.file.exists(pagePath)) {
+        grunt.fail.fatal('The file ' + pagePath + ' does not exist');
+        return false;
+      }
+    });
+    return true;
   }
 
   function startLocalServer(options, developmentUrl) {
@@ -64,24 +73,10 @@ module.exports = function(grunt) {
     });
 
     simulator.use(cors());
-    simulator.use(function(req, res, next) {
-      var debugMiddleware = express.static(path.join(process.cwd(), options.root), {
-        index: false
-      });
 
-      var buildMiddleware = express.static(process.cwd(), {
-        index: false
-      });
-
-      // If the path starts with dist or build assume these are the built assets,
-      // so don't prepend the root path
-      if (/^\/(dist|build)\//.test(req.path)) {
-        buildMiddleware(req, res, next);
-      }
-      else {
-        debugMiddleware(req, res, next);
-      }
-    });
+    var staticRoot = path.join(process.cwd(), options.base[options.build]);
+    grunt.log.debug("Serve static assets from " + staticRoot);
+    simulator.use(express.static(staticRoot, {index: false}));
 
     simulator.use(function(req, res, next) {
       grunt.log.debug("Serving asset " + req.url);
@@ -124,6 +119,14 @@ module.exports = function(grunt) {
       port: 3000
     });
 
+    // Determine whether debug or release assets should be delivered
+    options.build = (grunt.option('release') === true) ? 'release' : 'debug';
+
+    // Get the absolute path of all the pages
+    options.pagePaths = _.map(_.keys(options.pages), function(page) {
+      return path.join(process.cwd(), options.base[options.build], options.pages[page]);
+    });
+
     // Override the watch livereload settings with the built in SSL cert
     if (grunt.config('watch.options.livereload') === true) {
       options.livereload = true;
@@ -137,10 +140,10 @@ module.exports = function(grunt) {
       }
     }
 
-    if (!grunt.file.exists(path.join(options.root, options.index))) {
-      grunt.log.error('The index document ' + options.index + ' does not exist');
+    // Verify the index and login (if applicable) files exist
+    grunt.log.debug("Verify index pages exist");
+    if (!verifyIndexPagesExist(options))
       return false;
-    }
 
     var done = null;
     var args = grunt.task.current.args;
@@ -149,24 +152,22 @@ module.exports = function(grunt) {
     if (async === true)
       done = grunt.task.current.async();
 
-    var pages = [options.index];
-    if (grunt.file.exists(options.login))
-      pages.push(options.login);
-
-    uploadIndexDocuments(pages, config, options, function(err, app) {
+    // Upload all the index pages when the simulator starts up.
+    uploadIndexPages(options.pagePaths, config, options, function(err, app) {
       if (err)
         return grunt.fail.fatal(err);
 
       var developmentUrl = app.url + '?sim=1&user=' + config.userId + '&port=' + options.port;
       if (options.livereload === true)
         developmentUrl += '&reload=1';
-      if (grunt.option('release') === true)
+
+      if (options.build === 'release')
         developmentUrl += '&release=1';
 
       startLocalServer(options, developmentUrl);
 
       // Watch for changes to the index file
-      watchIndexDocuments(config, options);
+      watchIndexPages(config, options);
 
       if (grunt.option('open')) {
         grunt.log.writeln("Launching browser to " + developmentUrl.underline.cyan);

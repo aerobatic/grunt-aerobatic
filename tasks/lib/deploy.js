@@ -68,6 +68,11 @@ module.exports = function(grunt) {
       cowboy: false
     });
 
+    // Get the absolute path of all the pages
+    options.pagePaths = _.map(_.keys(options.pages), function(page) {
+      return path.join(process.cwd(), options.base.release, options.pages[page]);
+    });
+
     // Allow overriding the cowboy mode from the command line.
     if (grunt.option('cowboy') === true)
       options.cowboy = true;
@@ -78,7 +83,7 @@ module.exports = function(grunt) {
       versionId: versionId,
       appId: config.appId,
       userId: config.userId,
-      storageKey: versionId, //crypto.createHash('md5').update(versionId).digest('hex').substring(0, 9),
+      storageKey: versionId,
       name: grunt.option('name'),
       message: grunt.option('message')
     };
@@ -90,61 +95,61 @@ module.exports = function(grunt) {
       return grunt.fail.fatal("No files found to deploy");
 
     async.each(options.files[0].src, function(filePath, cb) {
-      // Ensure the slashes are forward in the relative path
-      var relativePath = path.relative(process.cwd(), filePath).replace(/\\/g, '/');
+      var basePath = path.join(process.cwd(), options.base.release);
 
-      // Correct the index documents to always be at the root.
-      var baseName = path.basename(relativePath);
-      if (baseName == options.index || baseName == options.login) {
-        relativePath = baseName;
-      }
+      // Ensure the slashes are forward in the relative path
+      var relativePath = path.relative(basePath, filePath).replace(/\\/g, '/');
 
       var uploadUrl = options.airport + '/dev/' + config.appId + '/deploy/' + versionData.storageKey + '/' + relativePath;
-      grunt.log.debug('Deploying file ' + relativePath);
+      grunt.log.writeln('Deploying file ' + relativePath);
       uploadCount++;
 
-      var compress = shouldCompress(filePath, options);
+      var compress = shouldCompress(path.join(process.cwd(), filePath), options);
       uploadFile(config, filePath, uploadUrl, compress, cb);
     }, function(err) {
       if (err)
         return grunt.fail.fatal("Error deploying source files: " + err);
 
       grunt.log.debug('Done uploading ' + uploadCount + ' files');
-
-      // Create the new version
-      var url = options.airport + '/dev/' + config.appId + '/version';
-      grunt.log.debug('Creating new version');
-
-      if (options.cowboy === true) {
-        versionData.forceAllTrafficToNewVersion = '1';
-        grunt.log.writeln('Cowboy mode - forcing all traffic to the new version. Yippee-ki-yay!'.yellow);
-      }
-
-      api(config, {url: url, form: versionData}, function(err, version) {
-        if (err)
-          return grunt.fail.fatal(err);
-
-        grunt.log.writeln("New version successfully deployed".green);
-
-        if (grunt.option('open') === true) {
-          grunt.log.writeln("Launching browser to " + version.previewUrl);
-          open(version.previewUrl);
-        }
-        else {
-          if (options.cowboy === true)
-            grunt.log.ok("New version is live at " + version.previewUrl.cyan.underline);
-          else
-            grunt.log.ok("Preview at: " + version.previewUrl.cyan.underline);
-        }
-
+      createNewVersion(options, config, versionData, function() {
         done();
       });
+    });
+  };
+
+  function createNewVersion(options, config, versionData, cb) {
+    // Create the new version
+    var url = options.airport + '/dev/' + config.appId + '/version';
+    grunt.log.debug('Creating new version');
+
+    if (options.cowboy === true) {
+      versionData.forceAllTrafficToNewVersion = '1';
+      grunt.log.writeln('Cowboy mode - forcing all traffic to the new version. Yippee-ki-yay!'.yellow);
+    }
+
+    api(config, {url: url, form: versionData}, function(err, version) {
+      if (err)
+        return grunt.fail.fatal(err.message);
+
+      grunt.log.writeln("New version successfully deployed".green);
+
+      if (grunt.option('open') === true) {
+        grunt.log.writeln("Launching browser to " + version.previewUrl);
+        open(version.previewUrl);
+      }
+      else {
+        if (options.cowboy === true)
+          grunt.log.ok("New version " + version.versionId + " is live at " + version.previewUrl.cyan.underline);
+        else
+          grunt.log.ok("Preview at: " + version.previewUrl.cyan.underline);
+      }
+      cb();
     });
   }
 
   function shouldCompress(filePath, options) {
-    // Don't compress the index or login page
-    if (_.contains([options.login, options.index], path.basename(filePath)))
+    // Don't compress any of the pages that are served from the app platform rather than the CDN.
+    if (_.contains(options.pagePaths, filePath))
       return false;
 
     if (_.contains(compressExtensions, path.extname(filePath)))
